@@ -4,7 +4,7 @@ import mimetypes
 
 import exifread
 import requests
-from dateutil import parser
+from datetime import datetime
 
 START_URL = "https://cloud-api.yandex.net:443/v1/disk"
 
@@ -31,6 +31,13 @@ def isimage(path):
     return t.startswith("image")
 
 
+def shot_date(path):
+    with open(path, 'rb') as f:
+        tags = exifread.process_file(f, details=False, stop_tag="DateTimeOriginal")
+
+    return datetime.strptime(str(tags["EXIF DateTimeOriginal"]), "%Y:%m:%d %H:%M:%S")
+
+
 def mkdirs(s, path):
     print("Creating '{}'".format(path))
     if not path or path == "/":
@@ -55,10 +62,7 @@ for path, dirs, files in os.walk("/media/petrovev/EOS_DIGITAL"):
         print(path)
         for image in images:
             img_path = os.path.join(path, image)
-            with open(img_path, 'rb') as f:
-                tags = exifread.process_file(f, details=False, stop_tag="DateTimeOriginal")
-
-            date_time = parser.parse(str(tags["EXIF DateTimeOriginal"]))
+            date_time = shot_date(img_path)
             image_dir = SYNC_PATH + "/" + date_time.strftime("%Y/%m/%d")
             mkdirs(s, image_dir)
 
