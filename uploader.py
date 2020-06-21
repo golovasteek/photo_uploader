@@ -1,42 +1,26 @@
 #!/usr/bin/env python3
 import os
-import json
 import mimetypes
 
 import exifread
 import requests
 from dateutil import parser
 
-TOKEN = os.environ["UPLOADER_TOKEN"]
-
 START_URL = "https://cloud-api.yandex.net:443/v1/disk"
 
-SYNC_PATH="/photo.sync"
-HEADERS = {
-    "Authorization": "OAuth {}".format(TOKEN)
-}
-
-s = requests.Session()
-s.headers.update(HEADERS)
-
-resp = s.get(
-    START_URL
-)
+SYNC_PATH = "/photo.sync"
 
 
-assert resp.ok, resp.reason
-parsed = resp.json()
-name = parsed["user"]["display_name"]
+def create_session():
+    token = os.environ["UPLOADER_TOKEN"]
+    HEADERS = {
+        "Authorization": "OAuth {}".format(token)
+    }
 
-print("Logged in as", name)
+    s = requests.Session()
+    s.headers.update(HEADERS)
+    return s
 
-resp = s.get(
-    START_URL + "/resources?path={}".format(SYNC_PATH),
-)
-parsed = resp.json()
-
-for item in parsed["_embedded"]["items"]:
-    print(item["name"])
 
 def isimage(path):
     if not os.path.exists(path):
@@ -47,7 +31,7 @@ def isimage(path):
     return t.startswith("image")
 
 
-def mkdirs(path):
+def mkdirs(s, path):
     print("Creating '{}'".format(path))
     if not path or path == "/":
         return
@@ -66,23 +50,24 @@ def mkdirs(path):
 
 for path, dirs, files in os.walk("/media/petrovev/EOS_DIGITAL"):
     images = [f for f in files if isimage(os.path.join(path, f))]
+    s = create_session()
     if images:
         print(path)
         for image in images:
-            img_path  = os.path.join(path, image)
+            img_path = os.path.join(path, image)
             with open(img_path, 'rb') as f:
                 tags = exifread.process_file(f, details=False, stop_tag="DateTimeOriginal")
-            
+
             date_time = parser.parse(str(tags["EXIF DateTimeOriginal"]))
             image_dir = SYNC_PATH + "/" + date_time.strftime("%Y/%m/%d")
-            mkdirs(image_dir)
-            
+            mkdirs(s, image_dir)
+
             upload_path = "{}/{}".format(image_dir, image)
             print("\t", image, upload_path)
             resp = s.get(
                 START_URL + "/resources/upload?overwrite=false&path={}".format(upload_path))
             assert resp.ok, resp.reason
-            
+
             upload_url = resp.json()["href"]
             with open(img_path, 'rb') as f:
                 resp = s.put(
