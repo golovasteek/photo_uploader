@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import json
 import mimetypes
 
 import exifread
@@ -11,7 +10,7 @@ TOKEN = os.environ["UPLOADER_TOKEN"]
 
 START_URL = "https://cloud-api.yandex.net:443/v1/disk"
 
-SYNC_PATH="/photo.sync"
+SYNC_PATH = "/photo.sync"
 HEADERS = {
     "Authorization": "OAuth {}".format(TOKEN)
 }
@@ -37,6 +36,7 @@ parsed = resp.json()
 
 for item in parsed["_embedded"]["items"]:
     print(item["name"])
+
 
 def isimage(path):
     if not os.path.exists(path):
@@ -69,20 +69,20 @@ for path, dirs, files in os.walk("/media/petrovev/EOS_DIGITAL"):
     if images:
         print(path)
         for image in images:
-            img_path  = os.path.join(path, image)
+            img_path = os.path.join(path, image)
             with open(img_path, 'rb') as f:
                 tags = exifread.process_file(f, details=False, stop_tag="DateTimeOriginal")
-            
+
             date_time = parser.parse(str(tags["EXIF DateTimeOriginal"]))
             image_dir = SYNC_PATH + "/" + date_time.strftime("%Y/%m/%d")
             mkdirs(image_dir)
-            
+
             upload_path = "{}/{}".format(image_dir, image)
             print("\t", image, upload_path)
             resp = s.get(
                 START_URL + "/resources/upload?overwrite=false&path={}".format(upload_path))
             assert resp.ok, resp.reason
-            
+
             upload_url = resp.json()["href"]
             with open(img_path, 'rb') as f:
                 resp = s.put(
